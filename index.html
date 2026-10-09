@@ -22,6 +22,12 @@ const $=s=>document.querySelector(s);
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const dateLabel=v=>{if(!/^\d{4}-\d{2}-\d{2}$/.test(v))return v||'Date TBC';const [y,m,d]=v.split('-').map(Number);return new Intl.DateTimeFormat('en-GB',{day:'numeric',month:'short',year:'numeric'}).format(new Date(y,m-1,d));};
 const hasScore=m=>Number.isFinite(m.ourScore)&&Number.isFinite(m.theirScore);
+const isAway=m=>m.homeAway.trim().toLowerCase()==='away';
+const teamNames=m=>isAway(m)?[m.opposition,'NewTrent']:['NewTrent',m.opposition];
+const matchTitle=m=>teamNames(m).join(' v ');
+const matchScore=m=>completed(m)?(isAway(m)?`${m.theirScore}–${m.ourScore}`:`${m.ourScore}–${m.theirScore}`):'v';
+const matchHeadline=m=>completed(m)?`${teamNames(m)[0]} ${matchScore(m)} ${teamNames(m)[1]}`:matchTitle(m);
+
 const completed=m=>m.status.toLowerCase()==='completed'&&hasScore(m);
 const scheduled=m=>!['cancelled','postponed','completed'].includes(m.status.toLowerCase());
 const today=()=>{const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`};
@@ -59,23 +65,23 @@ function render(fixtures){
   const sorted=[...fixtures].sort((a,b)=>a.date.localeCompare(b.date)||a.matchId.localeCompare(b.matchId));
   const played=sorted.filter(completed),future=sorted.filter(m=>scheduled(m)&&m.date>=today());
   const next=future[0],last=played.at(-1);
-  $('#next').textContent=next?`NewTrent v ${next.opposition}`:'No upcoming match listed';
+  $('#next').textContent=next?matchTitle(next):'No upcoming match listed';
   $('#nextmeta').innerHTML=next?`${esc(dateLabel(next.date))} · ${esc(next.kickOff||'Time TBC')} · ${esc(next.homeAway)}${next.venue?' · '+esc(next.venue):''}<div class="detail-actions">${matchLink(next,'Fixture details →')}</div>`:'Check with the coaches for the next fixture.';
-  $('#latest').textContent=last?`NewTrent ${last.ourScore}–${last.theirScore} ${last.opposition}`:'No completed result listed';
+  $('#latest').textContent=last?matchHeadline(last):'No completed result listed';
   $('#latestmeta').innerHTML=last?`${esc(dateLabel(last.date))} · ${esc(last.competition)}<div class="detail-actions">${matchLink(last,'Match report →')}</div>`:'Results will appear once entered in Google Sheets.';
   const wins=played.filter(m=>m.ourScore>m.theirScore).length,draws=played.filter(m=>m.ourScore===m.theirScore).length;
   $('#summary').textContent=`${sorted.length} fixtures · ${played.length} played · ${wins} wins · ${draws} draws · ${played.length-wins-draws} losses`;
-  $('#matchlist').innerHTML=sorted.length?sorted.map(m=>`<article class="card match"><div><span class="pill">${esc(m.competition||'Fixture')}</span><span class="pill">${esc(m.homeAway||'Venue TBC')}</span><span class="pill">${esc(m.status)}</span></div><h3>NewTrent ${completed(m)?`${m.ourScore}–${m.theirScore}`:'v'} ${esc(m.opposition)}</h3><p class="muted">${esc(dateLabel(m.date))} · ${esc(m.kickOff||'Time TBC')}${m.venue?' · '+esc(m.venue):''}</p>${matchLink(m,completed(m)?'Match report →':'Fixture details →')}</article>`).join(''):'<div class="empty">No fixtures have been entered yet.</div>';
+  $('#matchlist').innerHTML=sorted.length?sorted.map(m=>`<article class="card match"><div><span class="pill">${esc(m.competition||'Fixture')}</span><span class="pill">${esc(m.homeAway||'Venue TBC')}</span><span class="pill">${esc(m.status)}</span></div><h3>${esc(matchHeadline(m))}</h3><p class="muted">${esc(dateLabel(m.date))} · ${esc(m.kickOff||'Time TBC')}${m.venue?' · '+esc(m.venue):''}</p>${matchLink(m,completed(m)?'Match report →':'Fixture details →')}</article>`).join(''):'<div class="empty">No fixtures have been entered yet.</div>';
 }
 function renderMatch(matchId){
   const m=allFixtures.find(x=>x.matchId===matchId);
   if(!m){$('#detail-content').innerHTML='<div class="empty">Match not found. Check the match link or return to fixtures.</div><p><a class="btn" href="?section=fixtures">← All fixtures</a></p>';return;}
   const r=allResults.get(matchId)||{};
   const photo=safeUrl(r.photoUrl),video=safeUrl(r.videoUrl);
-  const score=completed(m)?`${m.ourScore} – ${m.theirScore}`:'v';
+  const score=matchScore(m);
   $('#detail-content').innerHTML=`<p><a class="btn" href="?section=fixtures">← All fixtures</a></p>
     <article class="card match-detail-head"><div class="label">${esc(m.competition||'Fixture')} · ${esc(m.status)}</div>
-    <h2>NewTrent ${completed(m)?'–':'v'} ${esc(m.opposition)}</h2><div class="match-score">${score}</div>
+    <h2>${esc(matchTitle(m))}</h2><div class="match-score">${score}</div>
     <p class="muted">${esc(dateLabel(m.date))} · ${esc(m.kickOff||'Time TBC')} · ${esc(m.homeAway)}${m.venue?' · '+esc(m.venue):''}</p></article>
     <div class="detail-stack"><article class="card maroon"><div class="label">Match report</div>
     ${r.matchReport?`<p class="report-body">${esc(r.matchReport)}</p>`:'<p class="muted">Match report coming soon.</p>'}</article>
