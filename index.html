@@ -6,6 +6,24 @@
 .calendar-list{display:grid;gap:12px}.calendar-entry{display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap}.calendar-entry h3{margin:6px 0}.sponsors-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px}.sponsor-card{text-align:center;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;min-height:140px}.sponsor-card img{max-height:90px;max-width:100%;object-fit:contain;background:white;padding:8px;border-radius:6px}.stats-table{width:100%;border-collapse:collapse;min-width:540px}.stats-table th,.stats-table td{padding:12px 10px;text-align:left;border-bottom:1px solid #505659}.stats-table th{color:#d9dadd;font-size:.75rem;text-transform:uppercase;letter-spacing:.08em}.stats-table td:not(:first-child),.stats-table th:not(:first-child){text-align:right}.table-scroll{overflow-x:auto}.media-list{display:grid;gap:14px}.mini{font-size:.86rem}.site-photo{width:100%;max-height:420px;object-fit:cover;border-radius:12px;margin-top:18px}.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
 
 .league-table{width:100%;border-collapse:collapse;min-width:620px}.league-table th,.league-table td{padding:12px 10px;border-bottom:1px solid #505659;text-align:right;white-space:nowrap}.league-table th:nth-child(2),.league-table td:nth-child(2){text-align:left}.league-table th{font-size:.75rem;text-transform:uppercase;color:#d9dadd;letter-spacing:.06em}.league-table tr.our-team{background:#317d5338;font-weight:800}.league-table tr.our-team td:nth-child(2){border-left:4px solid #57a474}.league-table tbody tr:hover{background:#ffffff0c}
+
+/* NewTrent match and calendar status cards */
+.card.match,.card.calendar-entry{border-left:5px solid #657078;transition:border-color .2s ease,background-color .2s ease}
+.card.match.status-completed{background:#30252b;border-left-color:#ad4665}
+.card.match.status-upcoming{background:#20352b;border-left-color:#4ca572}
+.card.match.status-postponed{background:#3b3326;border-left-color:#d3a24b}
+.card.match.status-cancelled{background:#38282b;border-left-color:#d17b80}
+.card.match.status-other{background:#292d30;border-left-color:#879099}
+.card.calendar-entry.calendar-match{background:#20352b;border-left-color:#4ca572}
+.card.calendar-entry.calendar-activity{background:#29333d;border-left-color:#7897b7}
+.card.calendar-entry.calendar-past{opacity:.78}
+.status-tag{display:inline-block;font-size:.72rem;letter-spacing:.08em;text-transform:uppercase;font-weight:800;padding:5px 9px;border-radius:6px;border:1px solid #ffffff30}
+.status-completed .status-tag{color:#f1bbca;background:#8b294533}
+.status-upcoming .status-tag,.calendar-match .status-tag{color:#b7e9c9;background:#317d533d}
+.status-postponed .status-tag{color:#f2d397;background:#a7792938}
+.status-cancelled .status-tag{color:#f2b9bc;background:#a34d5638}
+.calendar-activity .status-tag{color:#c4dcf5;background:#567a9b35}
+@media(max-width:680px){.card.match,.card.calendar-entry{border-left-width:4px}}
 </style></head><body>
 <div class="topbar"><div class="shell"><div><div class="brand">NEW<span>TRENT</span> <small style="font-size:.46em;letter-spacing:0;vertical-align:middle">U16s</small></div><div class="eyebrow" style="margin-top:7px">Newcastle × Trentham</div></div><div class="season">2026 / 27<br>SEASON</div></div></div><div class="stripe"></div>
 <header class="hero"><div class="shell"><span class="hero-tag">ONE TEAM · TWO CLUBS</span><h1>NEW<br><span>TRENT.</span></h1><p id="team-overview">Newcastle and Trentham together. Follow the U16s throughout the 2026/27 season — fixtures, results and everything happening around the team.</p><div id="team-photo"></div><div class="accent-rule"></div></div></header>
@@ -37,6 +55,7 @@ const matchHeadline=m=>completed(m)?`${teamNames(m)[0]} ${matchScore(m)} ${teamN
 
 const completed=m=>m.status.toLowerCase()==='completed'&&hasScore(m);
 const scheduled=m=>!['cancelled','postponed','completed'].includes(m.status.toLowerCase());
+const matchStatusClass=m=>{const s=m.status.trim().toLowerCase();return s==='completed'?'status-completed':s==='postponed'?'status-postponed':s==='cancelled'?'status-cancelled':scheduled(m)?'status-upcoming':'status-other';};
 const today=()=>{const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`};
 let allFixtures=[];
 let allResults=new Map();
@@ -90,7 +109,7 @@ function render(fixtures){
   $('#latestmeta').innerHTML=last?`${esc(dateLabel(last.date))} · ${esc(last.competition)}<div class="detail-actions">${matchLink(last,'Match report →')}</div>`:'Results will appear once entered in Google Sheets.';
   const wins=played.filter(m=>m.ourScore>m.theirScore).length,draws=played.filter(m=>m.ourScore===m.theirScore).length;
   $('#summary').textContent=`${sorted.length} fixtures · ${played.length} played · ${wins} wins · ${draws} draws · ${played.length-wins-draws} losses`;
-  $('#matchlist').innerHTML=sorted.length?sorted.map(m=>`<article class="card match"><div><span class="pill">${esc(m.competition||'Fixture')}</span><span class="pill">${esc(m.homeAway||'Venue TBC')}</span><span class="pill">${esc(m.status)}</span></div><h3>${esc(matchHeadline(m))}</h3><p class="muted">${esc(dateLabel(m.date))} · ${esc(m.kickOff||'Time TBC')}${m.venue?' · '+esc(m.venue):''}</p>${matchLink(m,completed(m)?'Match report →':'Fixture details →')}</article>`).join(''):'<div class="empty">No fixtures have been entered yet.</div>';
+  $('#matchlist').innerHTML=sorted.length?sorted.map(m=>`<article class="card match ${matchStatusClass(m)}"><div><span class="pill">${esc(m.competition||'Fixture')}</span><span class="pill">${esc(m.homeAway||'Venue TBC')}</span><span class="status-tag">${esc(m.status)}</span></div><h3>${esc(matchHeadline(m))}</h3><p class="muted">${esc(dateLabel(m.date))} · ${esc(m.kickOff||'Time TBC')}${m.venue?' · '+esc(m.venue):''}</p>${matchLink(m,completed(m)?'Match report →':'Fixture details →')}</article>`).join(''):'<div class="empty">No fixtures have been entered yet.</div>';
 }
 function renderMatch(matchId){
   const m=allFixtures.find(x=>x.matchId===matchId);
@@ -121,7 +140,7 @@ function renderCalendar(){
   const next=future[0];
   $('#nextactivity').textContent=next?String(next.activity||'Team activity'):'No upcoming activity listed';
   $('#activitymeta').textContent=next?`${dateLabel(next.date)} · ${next.startTime||'Time TBC'}${next.location?' · '+next.location:''}`:'Check with the coaches for training information.';
-  $('#calendarlist').innerHTML=activities.length?activities.map(a=>`<article class="card calendar-entry"><div><span class="label">${esc(dateLabel(a.date))} · ${esc(a.startTime||'Time TBC')}${a.endTime?'–'+esc(a.endTime):''}</span><h3>${esc(a.activity||'Team activity')}</h3><div class="muted mini">${esc(a.location||'Location TBC')}${a.notes?' · '+esc(a.notes):''}</div></div>${a.matchId?matchLink({matchId:a.matchId},'Fixture details →'):''}</article>`).join(''):'<div class="empty">No calendar activities entered yet. Add training sessions to the Team Calendar sheet.</div>';
+  $('#calendarlist').innerHTML=activities.length?activities.map(a=>`<article class="card calendar-entry ${a.matchId?'calendar-match':'calendar-activity'} ${String(a.date)<today()?'calendar-past':''}"><div><span class="status-tag">${a.matchId?'Match':'Team activity'}</span><div class="label" style="margin-top:9px">${esc(dateLabel(a.date))} · ${esc(a.startTime||'Time TBC')}${a.endTime?'–'+esc(a.endTime):''}</div><h3>${esc(a.activity||'Team activity')}</h3><div class="muted mini">${esc(a.location||'Location TBC')}${a.notes?' · '+esc(a.notes):''}</div></div>${a.matchId?matchLink({matchId:a.matchId},'Fixture details →'):''}</article>`).join(''):'<div class="empty">No calendar activities entered yet. Add training sessions to the Team Calendar sheet.</div>';
 }
 function renderStats(){
   if(!publicStats){
