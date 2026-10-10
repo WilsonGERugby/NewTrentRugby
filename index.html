@@ -24,6 +24,13 @@
 .status-cancelled .status-tag{color:#f2b9bc;background:#a34d5638}
 .calendar-activity .status-tag{color:#d4d4e2;background:#777b9633}
 @media(max-width:680px){.season-strip{padding:13px 19px}.card.match,.card.calendar-entry{border-left-width:4px}}
+
+/* Simple noticeboard likes */
+.board-like-row{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:12px}
+.board-like-btn{background:#38484a;color:#f5f5f4;border:1px solid #779598;border-radius:7px;padding:7px 12px;cursor:pointer;font-size:.85rem;font-weight:750}
+.board-like-btn:hover:not(:disabled){background:#486164}
+.board-like-btn:disabled{opacity:.8;cursor:default}
+.board-like-count{font-size:.81rem;color:#d5dddd}
 </style></head><body>
 <div class="topbar"><div class="shell"><div><div class="brand">NEW<span>TRENT</span> <small style="font-size:.46em;letter-spacing:0;vertical-align:middle">U16s</small></div><div class="eyebrow" style="margin-top:7px">Newcastle × Trentham</div></div><div class="season">2026 / 27<br>SEASON</div></div></div><div class="stripe"></div>
 <header class="hero"><div class="shell"><span class="hero-tag">ONE TEAM · TWO CLUBS</span><h1>NEW<br><span>TRENT.</span></h1><p id="team-overview">Newcastle and Trentham together. Follow the U16s throughout the 2026/27 season — fixtures, results and everything happening around the team.</p><div id="team-photo"></div><div class="accent-rule"></div></div></header>
@@ -112,6 +119,15 @@ function render(fixtures){
   $('#summary').innerHTML=[['Matches',sorted.length],['Played',played.length],['Wins',wins],['Draws',draws],['Losses',played.length-wins-draws]].map(([label,value])=>`<span class="stat-pair">${label}: <strong>${value}</strong></span>`).join('');
   $('#matchlist').innerHTML=sorted.length?sorted.map(m=>`<article class="card match ${matchStatusClass(m)}"><div><span class="pill">${esc(m.competition||'Fixture')}</span><span class="pill">${esc(m.homeAway||'Venue TBC')}</span><span class="status-tag">${esc(m.status)}</span></div><h3>${esc(matchHeadline(m))}</h3><p class="muted">${esc(dateLabel(m.date))} · ${esc(m.kickOff||'Time TBC')}${m.venue?' · '+esc(m.venue):''}</p>${matchLink(m,completed(m)?'Match report →':'Fixture details →')}</article>`).join(''):'<div class="empty">No fixtures have been entered yet.</div>';
 }
+// Each browser can Like a particular notice once. This is a casual interaction,
+// not a verified per-person voting system.
+function likedNotice(noticeId){
+  try{return localStorage.getItem('newtrent-like-'+noticeId)==='1';}
+  catch{return false;}
+}
+function rememberLike(noticeId){
+  try{localStorage.setItem('newtrent-like-'+noticeId,'1');}catch{}
+}
 function renderNoticeboard(notices){
   const items=(Array.isArray(notices)?notices:[])
     .filter(n=>n&&n.title&&n.active!==false)
@@ -122,9 +138,42 @@ function renderNoticeboard(notices){
   $('#noticeboard-list').innerHTML=items.map(n=>{
     const category=String(n.category||'General');
     const cls=category.toLowerCase()==='important'?'important':category.toLowerCase()==='fixture update'?'fixture-update':'';
-    return `<div class="board-item ${cls}"><div class="board-meta">${esc(category)} · ${esc(dateLabel(isoDate(n.date)))}</div><h3>${esc(n.title)}</h3>${n.message?`<p>${esc(n.message)}</p>`:''}</div>`;
+    const noticeId=String(n.noticeId||'').trim();
+    const liked=noticeId&&likedNotice(noticeId);
+    const likes=Math.max(0,Number(n.likes)||0);
+    const likeControls=noticeId?`<div class="board-like-row"><button type="button" class="board-like-btn" data-like-notice="${esc(noticeId)}" ${liked?'disabled':''} aria-label="Like notice: ${esc(n.title)}">${liked?'✓ Liked':'👍 Like'}</button><span class="board-like-count" aria-live="polite">${likes} ${likes===1?'like':'likes'}</span></div>`:'';
+    return `<div class="board-item ${cls}"><div class="board-meta">${esc(category)} · ${esc(dateLabel(isoDate(n.date)))}</div><h3>${esc(n.title)}</h3>${n.message?`<p>${esc(n.message)}</p>`:''}${likeControls}</div>`;
   }).join('');
 }
+
+// Google Apps Script redirects POST requests to a different Google domain.
+// no-cors lets the browser send the request, but it cannot read the response;
+// the visible total is optimistic until the next page refresh.
+$('#noticeboard-list').addEventListener('click',async event=>{
+  const button=event.target.closest('[data-like-notice]');
+  if(!button||button.disabled)return;
+  const noticeId=button.dataset.likeNotice;
+  if(!noticeId||likedNotice(noticeId))return;
+  button.disabled=true;
+  const countElement=button.parentElement.querySelector('.board-like-count');
+  const current=parseInt(countElement.textContent,10)||0;
+  button.textContent='👍 Sending…';
+  try{
+    await fetch(FEED_URL,{
+      method:'POST',mode:'no-cors',redirect:'follow',
+      headers:{'Content-Type':'application/x-www-form-urlencoded'},
+      body:new URLSearchParams({noticeId})
+    });
+    rememberLike(noticeId);
+    button.textContent='✓ Liked';
+    countElement.textContent=`${current+1} ${current+1===1?'like':'likes'}`;
+  }catch(error){
+    console.error('Unable to send Like:',error);
+    button.disabled=false;
+    button.textContent='👍 Try again';
+  }
+});
+
 function renderMatch(matchId){
   const m=allFixtures.find(x=>x.matchId===matchId);
   if(!m){$('#detail-content').innerHTML='<div class="empty">Match not found. Check the match link or return to fixtures.</div><p><a class="btn" href="?section=fixtures">← All fixtures</a></p>';return;}
